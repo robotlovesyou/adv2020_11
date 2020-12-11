@@ -1,4 +1,5 @@
 fn main() {
+    let started = std::time::Instant::now();
     let (start, row_len) = read_seats(include_str!("../input.txt").lines());
     let stable = step_to_stable(start, row_len, 4, count_occupied_neighbours);
     println!("There are {} occupied seats", count_occupied(&stable));
@@ -6,6 +7,9 @@ fn main() {
     let (start, row_len) = read_seats(include_str!("../input.txt").lines());
     let stable = step_to_stable(start, row_len, 5, count_occupied_neighbours_far);
     println!("There are {} occupied seats", count_occupied(&stable));
+    let done = std::time::Instant::now();
+    let taken = done - started;
+    println!("Took {}ms", taken.as_millis());
 }
 
 fn read_seats<'a>(input: impl Iterator<Item = &'a str>) -> (Vec<char>, usize) {
@@ -124,14 +128,16 @@ fn step(
     row_len: usize,
     tolerance: usize,
     count: CountOccupiedNeighbours,
-) -> (Vec<char>, Vec<char>) {
+) -> (Vec<char>, Vec<char>, bool) {
     let rows = current.len() / row_len;
+    let mut changed = false;
     for y in 0..rows {
         for x in 0..row_len {
             match seat_at(x, y, &current, row_len) {
                 'L' => {
                     if count(x, y, &current, row_len) == 0 {
                         next[offset(x, y, row_len)] = '#';
+                        changed = true;
                     } else {
                         next[offset(x, y, row_len)] = 'L';
                     }
@@ -139,6 +145,7 @@ fn step(
                 '#' => {
                     if count(x, y, &current, row_len) >= tolerance {
                         next[offset(x, y, row_len)] = 'L';
+                        changed = true;
                     } else {
                         next[offset(x, y, row_len)] = '#';
                     }
@@ -147,7 +154,7 @@ fn step(
             }
         }
     }
-    (next, current)
+    (next, current, changed)
 }
 
 fn step_to_stable(
@@ -158,10 +165,10 @@ fn step_to_stable(
 ) -> Vec<char> {
     let mut buffer = current.clone();
     loop {
-        let (new_current, new_buffer) = step(current, buffer, row_len, tolerance, count);
+        let (new_current, new_buffer, changed) = step(current, buffer, row_len, tolerance, count);
         current = new_current;
         buffer = new_buffer;
-        if current == buffer {
+        if !changed {
             return current;
         }
     }
